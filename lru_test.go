@@ -1,6 +1,8 @@
 package lru
 
 import (
+	//. "github.com/golang/groupcache/lru"
+	"sync"
 	"testing"
 )
 
@@ -102,4 +104,40 @@ func TestLen(t *testing.T) {
 		t.Errorf("got %d, expected %d", lruCache.Len(), 2)
 	}
 
+}
+
+func TestConcurrent(t *testing.T) {
+	concurrentWg := &sync.WaitGroup{}
+	iterationsPerOperation := 1000
+	concurrentWg.Add(3 * iterationsPerOperation)
+	lruCache := NewLruCache(1000)
+
+	go func() {
+		for i := 0; i < iterationsPerOperation; i++ {
+			go func(i int) {
+				lruCache.Add(i, struct{}{})
+				concurrentWg.Done()
+			}(i)
+		}
+	}()
+
+	go func() {
+		for i := 0; i < iterationsPerOperation; i++ {
+			go func(i int) {
+				lruCache.Get(i)
+				concurrentWg.Done()
+			}(i)
+		}
+	}()
+
+	go func() {
+		for i := 0; i < iterationsPerOperation; i++ {
+			go func(i int) {
+				lruCache.Remove(i)
+				concurrentWg.Done()
+			}(i)
+		}
+	}()
+
+	concurrentWg.Wait()
 }
